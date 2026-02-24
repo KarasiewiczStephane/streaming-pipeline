@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "required": ["op", "ts_ms", "source", "before", "after"],
+  "properties": {
+    "op": {"type": "string", "enum": ["c", "u", "d", "r"]},
+    "ts_ms": {"type": "integer"},
+    "source": {
+      "type": "object",
+      "properties": {
+        "table": {"type": "string"},
+        "db": {"type": "string"}
+      }
+    },
+    "before": {"type": ["object", "null"]},
+    "after": {"type": ["object", "null"]}
+  }
+}

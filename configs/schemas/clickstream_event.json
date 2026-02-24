@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "required": ["event_id", "user_id", "timestamp", "event_type", "session_id"],
+  "properties": {
+    "event_id": {"type": "string"},
+    "user_id": {"type": "string"},
+    "timestamp": {"type": "string"},
+    "event_type": {
+      "type": "string",
+      "enum": ["page_view", "add_to_cart", "purchase", "search", "user_login"]
+    },
+    "product_id": {"type": ["string", "null"]},
+    "session_id": {"type": "string"},
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "page_url": {"type": "string"},
+        "referrer": {"type": "string"},
+        "device_type": {"type": "string"},
+        "search_query": {"type": "string"},
+        "cart_value": {"type": "number"},
+        "quantity": {"type": "integer"}
+      }
+    }
+  }
+}
