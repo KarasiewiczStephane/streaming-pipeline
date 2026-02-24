@@ -1,6 +1,7 @@
 """Tests for dashboard data helpers and chart builders."""
 
 import sqlite3
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -12,7 +13,12 @@ from src.dashboard.app import (
     build_throughput_chart,
     build_top_products_chart,
     compute_overview_metrics,
+    load_delta_table,
     load_quality_metrics,
+    render_business,
+    render_overview,
+    render_quality,
+    render_throughput,
 )
 
 
@@ -133,3 +139,82 @@ class TestBuildBusinessCharts:
         df = pd.DataFrame({"product_id": ["p1", "p2"], "total_revenue": [100.0, 200.0]})
         fig = build_top_products_chart(df)
         assert fig is not None
+
+
+class TestLoadDeltaTable:
+    """Tests for the Delta table loader."""
+
+    def test_returns_empty_on_error(self) -> None:
+        mock_spark = MagicMock()
+        mock_spark.read.format.return_value.load.side_effect = Exception("no table")
+        result = load_delta_table(mock_spark, "/nonexistent")
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
+
+    def test_returns_pandas_df(self) -> None:
+        mock_spark = MagicMock()
+        expected = pd.DataFrame({"a": [1]})
+        mock_spark.read.format.return_value.load.return_value.toPandas.return_value = (
+            expected
+        )
+        result = load_delta_table(mock_spark, "/some/path")
+        assert len(result) == 1
+
+
+class TestRenderFunctions:
+    """Tests for Streamlit render functions (mocked st calls)."""
+
+    @patch("src.dashboard.app.st")
+    def test_render_overview_empty_data(self, mock_st) -> None:
+        mock_st.columns.return_value = [MagicMock() for _ in range(4)]
+        render_overview(pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+        mock_st.title.assert_called_once_with("Pipeline Overview")
+
+    @patch("src.dashboard.app.st")
+    def test_render_throughput_empty(self, mock_st) -> None:
+        render_throughput(pd.DataFrame())
+        mock_st.title.assert_called_once_with("Throughput Metrics")
+        mock_st.warning.assert_called_once()
+
+    @patch("src.dashboard.app.st")
+    def test_render_throughput_with_data(self, mock_st) -> None:
+        df = pd.DataFrame(
+            {
+                "window_start": ["2024-01-01"],
+                "event_count": [100],
+                "event_type": ["page_view"],
+            }
+        )
+        render_throughput(df)
+        mock_st.plotly_chart.assert_called_once()
+
+    @patch("src.dashboard.app.st")
+    def test_render_quality_empty(self, mock_st) -> None:
+        render_quality(pd.DataFrame())
+        mock_st.title.assert_called_once_with("Data Quality Scores")
+        mock_st.warning.assert_called_once()
+
+    @patch("src.dashboard.app.st")
+    def test_render_quality_with_failed(self, mock_st) -> None:
+        df = pd.DataFrame(
+            {
+                "check_name": ["chk1"],
+                "layer": ["bronze"],
+                "score": [0.5],
+                "passed": [0],
+                "timestamp": ["2024-01-01"],
+            }
+        )
+        render_quality(df)
+        mock_st.subheader.assert_called_once_with("Failed Checks")
+
+    @patch("src.dashboard.app.st")
+    def test_render_business_empty(self, mock_st) -> None:
+        render_business(pd.DataFrame(), pd.DataFrame())
+        mock_st.warning.assert_called_once()
+
+    @patch("src.dashboard.app.st")
+    def test_render_business_with_conversion(self, mock_st) -> None:
+        conv = pd.DataFrame({"window_start": ["2024-01-01"], "conversion_rate": [0.05]})
+        render_business(conv, pd.DataFrame())
+        mock_st.plotly_chart.assert_called_once()

@@ -130,3 +130,66 @@ class TestReadKafkaBatch:
 
         read = mock_spark.read.format.return_value
         read.option.return_value.option.return_value.option.return_value.option.return_value.load.assert_called_once()
+
+
+class TestBackfillBronze:
+    """Tests for the bronze backfill method."""
+
+    def test_writes_delta_to_output_path(self, config_file) -> None:
+        mock_spark = MagicMock()
+        mgr = BackfillManager(mock_spark, config_path=config_file)
+
+        with patch.object(mgr, "read_kafka_batch") as read_mock:
+            mock_df = MagicMock()
+            read_mock.return_value = mock_df
+            mgr.backfill_bronze("/tmp/bronze_out", start_offset=0)
+
+        mock_df.write.format.return_value.mode.return_value.save.assert_called_once_with(
+            "/tmp/bronze_out"
+        )
+
+    def test_uses_timestamp_start(self, config_file) -> None:
+        mock_spark = MagicMock()
+        mgr = BackfillManager(mock_spark, config_path=config_file)
+        ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+        with patch.object(mgr, "read_kafka_batch") as read_mock:
+            read_mock.return_value = MagicMock()
+            mgr.backfill_bronze("/tmp/out", start_timestamp=ts)
+
+        call_args = read_mock.call_args
+        assert "clickstream-events" in call_args[0][0]
+
+
+class TestBackfillSilver:
+    """Tests for the silver backfill method."""
+
+    def test_reads_and_writes_delta(self, config_file) -> None:
+        mock_spark = MagicMock()
+        mgr = BackfillManager(mock_spark, config_path=config_file)
+
+        with patch("src.consumer.backfill.process_silver") as mock_silver:
+            mock_silver.return_value = MagicMock()
+            mgr.backfill_silver("/tmp/bronze", "/tmp/silver")
+
+        mock_spark.read.format.return_value.load.assert_called_once_with("/tmp/bronze")
+        mock_silver.return_value.write.format.return_value.mode.return_value.save.assert_called_once_with(
+            "/tmp/silver"
+        )
+
+
+class TestBackfillGold:
+    """Tests for the gold backfill method."""
+
+    def test_writes_three_aggregation_tables(self, config_file) -> None:
+        mock_spark = MagicMock()
+        mgr = BackfillManager(mock_spark, config_path=config_file)
+
+        with patch("src.consumer.aggregations.GoldAggregations") as mock_aggs_cls:
+            mock_aggs = MagicMock()
+            mock_aggs_cls.return_value = mock_aggs
+            mgr.backfill_gold("/tmp/silver", "/tmp/gold")
+
+        mock_aggs.events_per_minute.assert_called_once()
+        mock_aggs.conversion_rate.assert_called_once()
+        mock_aggs.popular_products.assert_called_once()
