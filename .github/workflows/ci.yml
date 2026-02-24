@@ -1,0 +1,109 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linter
+        run: pip install ruff
+
+      - name: Run Ruff linter
+        run: ruff check src/ tests/
+
+      - name: Run Ruff formatter check
+        run: ruff format --check src/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/ -v --tb=short \
+            --cov=src --cov-report=xml --cov-report=term-missing \
+            -m "not integration"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    services:
+      zookeeper:
+        image: confluentinc/cp-zookeeper:7.5.0
+        env:
+          ZOOKEEPER_CLIENT_PORT: 2181
+        ports:
+          - 2181:2181
+      kafka:
+        image: confluentinc/cp-kafka:7.5.0
+        env:
+          KAFKA_BROKER_ID: 1
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        ports:
+          - 9092:9092
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Wait for Kafka
+        run: |
+          for i in $(seq 1 30); do
+            nc -z localhost 9092 && echo "Kafka ready" && exit 0
+            echo "Waiting for Kafka..."
+            sleep 2
+          done
+          exit 1
+
+      - name: Run integration tests
+        run: pytest tests/integration/ -v --tb=short -m integration
