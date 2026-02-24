@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -38,12 +36,104 @@ services:
       timeout: 10s
       retries: 5
 
-  spark:
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c '
+        kafka-topics --create --if-not-exists --topic clickstream-events
+          --partitions 3 --replication-factor 1 --bootstrap-server kafka:29092 &&
+        kafka-topics --create --if-not-exists --topic cdc-events
+          --partitions 3 --replication-factor 1 --bootstrap-server kafka:29092 &&
+        kafka-topics --create --if-not-exists --topic dead-letter-queue
+          --partitions 1 --replication-factor 1 --bootstrap-server kafka:29092
+      '
+
+  spark-master:
+    image: bitnami/spark:3.5.0
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - spark-data:/data
+      - ./checkpoints:/checkpoints
+
+  spark-worker:
+    image: bitnami/spark:3.5.0
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+    volumes:
+      - spark-data:/data
+
+  producer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.producer
+    container_name: producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - EVENTS_PER_SECOND=100
+    volumes:
+      - ../configs:/app/configs
+    restart: unless-stopped
+
+  consumer:
     build:
       context: ..
       dockerfile: docker/Dockerfile.consumer
+    container_name: consumer
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - SPARK_MASTER=spark://spark-master:7077
+    volumes:
+      - ../configs:/app/configs
+      - spark-data:/data
+      - ./checkpoints:/checkpoints
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - consumer
+    environment:
+      - DELTA_PATH=/data/delta
+    volumes:
+      - ../configs:/app/configs
+      - spark-data:/data
+      - ../data:/app/data
+    restart: unless-stopped
+
+volumes:
+  spark-data:
 
 networks:
   default:
