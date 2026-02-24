@@ -1,0 +1,33 @@
+kafka:
+  bootstrap_servers: "localhost:9092"
+  topics:
+    clickstream: "clickstream-events"
+    cdc: "cdc-events"
+    dlq: "dead-letter-queue"
+
+producer:
+  events_per_second: 100
+  batch_size: 100
+  num_users: 1000
+
+spark:
+  app_name: "StreamingPipeline"
+  checkpoint_location: "/tmp/checkpoints"
+
+delta:
+  bronze_path: "/data/delta/bronze"
+  silver_path: "/data/delta/silver"
+  gold_path: "/data/delta/gold"
+
+quality:
+  db_path: "data/quality_metrics.db"
+  thresholds:
+    bronze_schema: 0.99
+    bronze_null: 0.99
+    silver_dedup: 1.0
+    silver_timestamp: 0.99
+    gold_completeness: 1.0
+
+logging:
+  level: "INFO"
+  format: "json"

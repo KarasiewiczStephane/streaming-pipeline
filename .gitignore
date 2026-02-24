@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Environment
+.env
+
+# Data (large files)
+data/raw/
+data/delta/
+data/*.db
+*.csv
+*.parquet
+!data/sample/
+
+# Models
+*.pkl
+*.joblib
+*.pt
+*.h5
+*.onnx
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Task Master (keep local)
+.taskmaster/
+
+# Spark / Delta
+checkpoints/
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Test / Coverage
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
