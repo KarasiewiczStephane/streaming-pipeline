@@ -8,7 +8,6 @@ from pyspark.sql.types import (
     StructType,
 )
 
-
 from src.storage.cdc_handler import CDCHandler
 
 

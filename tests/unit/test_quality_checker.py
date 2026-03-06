@@ -26,7 +26,8 @@ class TestDataQualityChecker:
 
         conn = sqlite3.connect(checker.db_path)
         cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='quality_metrics'"
+            "SELECT name FROM sqlite_master"
+            " WHERE type='table' AND name='quality_metrics'"
         )
         assert cursor.fetchone() is not None
         conn.close()

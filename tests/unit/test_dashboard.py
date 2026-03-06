@@ -40,7 +40,8 @@ class TestLoadQualityMetrics:
             "details TEXT, timestamp TEXT)"
         )
         conn.execute(
-            "INSERT INTO quality_metrics VALUES (1,'chk','bronze',0.95,1,100,'ok','2024-01-01T00:00:00')"
+            "INSERT INTO quality_metrics VALUES"
+            " (1,'chk','bronze',0.95,1,100,'ok','2024-01-01T00:00:00')"
         )
         conn.commit()
         conn.close()
