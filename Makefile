@@ -1,4 +1,4 @@
-.PHONY: install test lint clean run docker-build docker-up docker-down docker-logs docker-ps
+.PHONY: install test lint clean run dashboard docker-build docker-up docker-down docker-logs docker-ps
 
 install:
 	pip install -r requirements.txt
@@ -20,6 +20,9 @@ clean:
 
 run:
 	python -m src.main
+
+dashboard:
+	streamlit run src/dashboard/app.py
 
 docker-build:
 	docker compose -f docker/docker-compose.yml build
