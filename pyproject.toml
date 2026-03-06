@@ -1,0 +1,13 @@
+[project]
+name = "streaming-pipeline"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I"]

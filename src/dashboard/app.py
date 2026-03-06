@@ -7,8 +7,12 @@ business metrics, and infrastructure health indicators.
 from __future__ import annotations
 
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Any
+
+# Ensure project root is on sys.path for Streamlit's script runner
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pandas as pd
 import plotly.express as px
@@ -25,28 +29,53 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def load_quality_metrics(db_path: str) -> pd.DataFrame:
-    """Load quality metrics from the SQLite database.
+def _load_table(db_path: str, query: str) -> pd.DataFrame:
+    """Load a table from SQLite with the given query.
 
-    Args:
-        db_path: Path to the quality metrics SQLite file.
-
-    Returns:
-        DataFrame with quality metric rows, or empty DataFrame on error.
+    Returns an empty DataFrame if the file or table does not exist.
     """
     if not Path(db_path).exists():
         return pd.DataFrame()
     try:
         conn = sqlite3.connect(db_path)
-        df = pd.read_sql(
-            "SELECT * FROM quality_metrics ORDER BY timestamp DESC LIMIT 1000",
-            conn,
-        )
+        df = pd.read_sql(query, conn)
         conn.close()
         return df
     except Exception:
-        logger.exception("Failed to load quality metrics from %s", db_path)
+        logger.exception("Failed to load from %s", db_path)
         return pd.DataFrame()
+
+
+def load_quality_metrics(db_path: str) -> pd.DataFrame:
+    """Load quality metrics from the SQLite database."""
+    return _load_table(
+        db_path,
+        "SELECT * FROM quality_metrics ORDER BY timestamp DESC LIMIT 1000",
+    )
+
+
+def load_events(db_path: str) -> pd.DataFrame:
+    """Load events-per-minute metrics from SQLite."""
+    return _load_table(
+        db_path,
+        "SELECT * FROM events_per_minute ORDER BY window_start",
+    )
+
+
+def load_conversions(db_path: str) -> pd.DataFrame:
+    """Load conversion rate metrics from SQLite."""
+    return _load_table(
+        db_path,
+        "SELECT * FROM conversion_rate ORDER BY window_start",
+    )
+
+
+def load_products(db_path: str) -> pd.DataFrame:
+    """Load popular products metrics from SQLite."""
+    return _load_table(
+        db_path,
+        "SELECT * FROM popular_products ORDER BY total_revenue DESC",
+    )
 
 
 def load_delta_table(spark: Any, path: str) -> pd.DataFrame:
@@ -339,15 +368,18 @@ def main() -> None:
         st.empty()
 
     quality_df = load_quality_metrics(quality_db)
+    events_df = load_events(quality_db)
+    conversion_df = load_conversions(quality_db)
+    products_df = load_products(quality_db)
 
     if page == "Overview":
-        render_overview(pd.DataFrame(), pd.DataFrame(), quality_df)
+        render_overview(events_df, conversion_df, quality_df)
     elif page == "Throughput":
-        render_throughput(pd.DataFrame())
+        render_throughput(events_df)
     elif page == "Data Quality":
         render_quality(quality_df)
     elif page == "Business Metrics":
-        render_business(pd.DataFrame(), pd.DataFrame())
+        render_business(conversion_df, products_df)
 
 
 if __name__ == "__main__":
