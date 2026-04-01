@@ -1,6 +1,6 @@
 # Real-Time Streaming Pipeline
 
-A scalable streaming architecture using Apache Kafka, PySpark Structured Streaming, and Delta Lake for processing e-commerce clickstream events with exactly-once semantics.
+> Kafka + PySpark + Delta Lake streaming architecture — medallion pattern processing of e-commerce clickstream events with exactly-once semantics.
 
 ## Architecture
 
@@ -200,6 +200,11 @@ streaming-pipeline/
 | Dashboard shows no data | Check consumer logs; verify Delta paths in `configs/config.yaml` |
 | Java not found | Install JDK 21+ and set `JAVA_HOME` |
 | Delta Lake not found | Ensure `delta-spark` is installed: `pip install delta-spark` |
+
+
+## Author
+
+**Stéphane Karasiewicz** — [skarazdata.com](https://skarazdata.com) | [LinkedIn](https://www.linkedin.com/in/stephane-karasiewicz/)
 
 ## License
 
